@@ -1,103 +1,130 @@
-# dashboard.py
-
 import streamlit as st
 import pandas as pd
-from db_config import get_connection
+import plotly.express as px
 from datetime import datetime, timedelta
+from db_config import get_connection
 
-# Page Config
-st.set_page_config(page_title="💊 Medicine Inventory Dashboard", layout="wide")
+st.set_page_config(page_title="💊 Inventory Dashboard", layout="wide")
 st.title("💊 Medicine Inventory & Sales Dashboard")
 
-# Connect to DB
+# === Load Data ===
 conn = get_connection()
 
-# Tabs
-tab1, tab2, tab3, tab4 = st.tabs(["📈 Sales Report", "📦 Inventory", "⚠️ Expiry Alerts", "💰 Supplier Analytics"])
+# Supplier Dropdown Data
+supplier_query = "SELECT DISTINCT name FROM suppliers"
+suppliers_list = pd.read_sql(supplier_query, conn)['name'].tolist()
 
-# ----------------------
-# 📈 Tab 1 - Sales Report
-# ----------------------
-with tab1:
-    st.subheader("Daily Sales Overview")
-    query = """
-        SELECT sale_date AS Date, SUM(quantity_sold) AS Total_Sold
-        FROM sales
-        GROUP BY sale_date
-        ORDER BY sale_date DESC
-    """
-    df_sales = pd.read_sql(query, conn)
-    if not df_sales.empty:
-        st.line_chart(df_sales.set_index('Date'))
+# Sidebar Filters
+st.sidebar.header("🔍 Filters")
 
-    st.subheader("Top-Selling Medicines")
-    query = """
-        SELECT m.name AS Medicine, SUM(s.quantity_sold) AS Total_Sold
-        FROM sales s
-        JOIN medicines m ON s.med_id = m.med_id
-        GROUP BY s.med_id
-        ORDER BY Total_Sold DESC
-        LIMIT 5
-    """
-    df_top = pd.read_sql(query, conn)
-    if not df_top.empty:
-        st.bar_chart(df_top.set_index('Medicine'))
+# 📅 Date Range
+min_date = datetime(2020, 1, 1)
+max_date = datetime.today()
+start_date, end_date = st.sidebar.date_input("Select Date Range:", [min_date, max_date])
+start_dt = datetime.combine(start_date, datetime.min.time())
+end_dt = datetime.combine(end_date, datetime.max.time())
 
-# -------------------------
-# 📦 Tab 2 - Inventory
-# -------------------------
-with tab2:
-    st.subheader("Full Inventory")
-    df_inventory = pd.read_sql("""
-        SELECT med_id, name, category, manufacturer, quantity, price, expiry_date
-        FROM medicines
-        ORDER BY name ASC
-    """, conn)
+# 🧾 Supplier Filter
+supplier_filter = st.sidebar.selectbox("Filter by Supplier", ["All"] + suppliers_list)
 
-    df_inventory['expiry_date'] = pd.to_datetime(df_inventory['expiry_date'])
+# 📦 Inventory Status Filter
+status_filter = st.sidebar.radio("Inventory Status", ["All", "Expired", "Near Expiry", "OK"])
 
-    st.dataframe(df_inventory)
+# === Sales Data ===
+sales_query = """
+    SELECT s.sale_date, m.name AS medicine_name, s.quantity_sold, sup.name AS supplier_name
+    FROM sales s
+    JOIN medicines m ON s.med_id = m.med_id
+    JOIN medicine_supplier ms ON ms.med_id = m.med_id
+    JOIN suppliers sup ON sup.supplier_id = ms.supplier_id
+"""
+df_sales = pd.read_sql(sales_query, conn)
+df_sales["sale_date"] = pd.to_datetime(df_sales["sale_date"])
 
-    st.subheader("Low Stock Medicines")
-    low_stock = df_inventory[df_inventory['quantity'] < 20]
-    st.warning(f"{len(low_stock)} medicine(s) with low stock")
-    st.dataframe(low_stock)
+# Apply Sales Filters
+sales_mask = (df_sales["sale_date"] >= start_dt) & (df_sales["sale_date"] <= end_dt)
+if supplier_filter != "All":
+    sales_mask &= (df_sales["supplier_name"] == supplier_filter)
+filtered_sales = df_sales[sales_mask]
 
-# -------------------------
-# ⚠️ Tab 3 - Expiry Alerts
-# -------------------------
-with tab3:
-    st.subheader("Expiring Soon (Next 30 Days)")
-    today = pd.Timestamp(datetime.today())
-    upcoming = today + pd.Timedelta(days=30)
+# === Inventory Data ===
+inventory_query = """
+    SELECT m.med_id, m.name, m.category, m.quantity, m.price, m.expiry_date, m.added_on, sup.name AS supplier_name
+    FROM medicines m
+    JOIN medicine_supplier ms ON m.med_id = ms.med_id
+    JOIN suppliers sup ON sup.supplier_id = ms.supplier_id
+    WHERE m.added_on BETWEEN %s AND %s
+"""
+df_inventory = pd.read_sql(inventory_query, conn, params=(start_dt, end_dt))
+df_inventory["expiry_date"] = pd.to_datetime(df_inventory["expiry_date"])
+df_inventory["added_on"] = pd.to_datetime(df_inventory["added_on"])
 
-    df_expiring = df_inventory[df_inventory['expiry_date'] <= upcoming]
-    st.dataframe(df_expiring)
+# Status Column
+today = datetime.today().date()
+df_inventory["status"] = df_inventory["expiry_date"].dt.date.apply(
+    lambda d: "Expired" if d < today else "Near Expiry" if d <= (today + timedelta(days=30)) else "OK"
+)
 
-    st.subheader("Already Expired")
-    df_expired = df_inventory[df_inventory['expiry_date'] < today]
-    st.dataframe(df_expired)
+# Apply Inventory Filters
+if supplier_filter != "All":
+    df_inventory = df_inventory[df_inventory["supplier_name"] == supplier_filter]
+if status_filter != "All":
+    df_inventory = df_inventory[df_inventory["status"] == status_filter]
 
-# -------------------------------
-# 💰 Tab 4 - Supplier Analytics
-# -------------------------------
-with tab4:
-    st.subheader("Supplier Cost Summary")
-    query = """
-        SELECT 
-            s.name AS Supplier,
-            ROUND(SUM(m.quantity * m.price), 2) AS Total_Cost
-        FROM suppliers s
-        JOIN medicine_supplier ms ON s.supplier_id = ms.supplier_id
-        JOIN medicines m ON ms.med_id = m.med_id
-        GROUP BY s.supplier_id
-        ORDER BY Total_Cost DESC
-    """
-    df_suppliers = pd.read_sql(query, conn)
-    st.dataframe(df_suppliers)
+# === Supplier Cost Summary ===
+cost_query = """
+    SELECT sup.name AS Supplier, ROUND(SUM(m.quantity * m.price), 2) AS Total_Cost
+    FROM medicines m
+    JOIN medicine_supplier ms ON ms.med_id = m.med_id
+    JOIN suppliers sup ON sup.supplier_id = ms.supplier_id
+    WHERE m.added_on BETWEEN %s AND %s
+    GROUP BY sup.name
+"""
+df_suppliers = pd.read_sql(cost_query, conn, params=(start_dt, end_dt))
+if supplier_filter != "All":
+    df_suppliers = df_suppliers[df_suppliers["Supplier"] == supplier_filter]
 
-    if not df_suppliers.empty:
-        st.bar_chart(df_suppliers.set_index("Supplier"))
-
-# Close DB
 conn.close()
+
+# === Charts ===
+
+# Line Chart: Daily Sales
+sales_chart = filtered_sales.groupby("sale_date")["quantity_sold"].sum().reset_index()
+fig_line = px.line(sales_chart, x="sale_date", y="quantity_sold", title="📈 Daily Sales")
+
+# Pie Chart: Inventory by Category
+cat_dist = df_inventory.groupby("category")["quantity"].sum().reset_index()
+fig_pie = px.pie(cat_dist, names="category", values="quantity", title="📊 Stock by Category")
+
+# Bar Chart: Top-Selling Medicines
+top_meds = filtered_sales.groupby("medicine_name")["quantity_sold"].sum().reset_index().sort_values(by="quantity_sold", ascending=False).head(10)
+fig_bar = px.bar(top_meds, x="medicine_name", y="quantity_sold", title="🏆 Top-Selling Medicines")
+
+# Bar Chart: Supplier Cost Summary
+fig_cost = px.bar(df_suppliers, x="Supplier", y="Total_Cost", title="💰 Supplier Cost Summary")
+
+# === KPIs ===
+st.markdown("### 📋 Key Metrics")
+col1, col2, col3 = st.columns(3)
+col1.metric("🧾 Total Sales", int(filtered_sales["quantity_sold"].sum()))
+col2.metric("📦 Inventory Qty", int(df_inventory["quantity"].sum()))
+col3.metric("⚠️ Expired Items", df_inventory[df_inventory["status"] == "Expired"].shape[0])
+
+# === Show Charts ===
+st.plotly_chart(fig_line, use_container_width=True)
+
+col4, col5 = st.columns(2)
+col4.plotly_chart(fig_pie, use_container_width=True)
+col5.plotly_chart(fig_bar, use_container_width=True)
+
+st.plotly_chart(fig_cost, use_container_width=True)
+
+# === Show Tables ===
+st.markdown("### 🧾 Filtered Sales Data")
+st.dataframe(filtered_sales)
+
+st.markdown("### 📦 Current Inventory")
+st.dataframe(df_inventory)
+
+st.markdown("### 💰 Supplier Cost Summary")
+st.dataframe(df_suppliers)
