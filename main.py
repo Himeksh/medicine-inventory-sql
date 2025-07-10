@@ -1,10 +1,5 @@
-# main.py
-
 from db_config import get_connection
-from datetime import datetime , timedelta
-from colorama import Fore, Style, init
-
-init(autoreset=True)
+from datetime import datetime, timedelta
 
 def show_menu():
     print("\n=== Medicine Inventory & Sales Management ===")
@@ -13,7 +8,7 @@ def show_menu():
     print("3. Update Medicine Quantity")
     print("4. Record a Sale")
     print("5. View Sales Report")
-    print("8. Exit")
+    print("6. Exit")
 
 def view_medicines():
     conn = get_connection()
@@ -34,13 +29,12 @@ def view_medicines():
         print(f"{'ID':<5} {'Name':<20} {'Category':<15} {'Manufacturer':<15} {'Qty':<6} {'Price':<8} {'Expiry':<12} {'Status'}")
         print("-" * 100)
         for med_id, name, category, manufacturer, qty, price, expiry in results:
-            status = ""
             if expiry < today:
-                status = Fore.RED + "EXPIRED" + Style.RESET_ALL
+                status = "EXPIRED"
             elif today <= expiry <= near_expiry_limit:
-                status = Fore.YELLOW + "Near Expiry" + Style.RESET_ALL
+                status = "Near Expiry"
             else:
-                status = Fore.GREEN + "OK" + Style.RESET_ALL
+                status = "OK"
 
             print(f"{med_id:<5} {name:<20} {category:<15} {manufacturer:<15} {qty:<6} ₹{price:<7.2f} {expiry}  {status}")
     else:
@@ -48,14 +42,14 @@ def view_medicines():
 
     cursor.close()
     conn.close()
-    
+
 def get_or_create_supplier(conn, supplier_name):
     cursor = conn.cursor()
     cursor.execute("SELECT supplier_id FROM suppliers WHERE name = %s", (supplier_name,))
     result = cursor.fetchone()
 
     if result:
-        print(f"ℹSupplier '{supplier_name}' already exists (ID: {result[0]}).")
+        print(f"ℹ Supplier '{supplier_name}' already exists (ID: {result[0]}).")
         return result[0]
     else:
         cursor.execute("INSERT INTO suppliers (name) VALUES (%s)", (supplier_name,))
@@ -70,16 +64,14 @@ def add_medicine():
     quantity = int(input("Quantity: "))
     price = float(input("Price: "))
     expiry = input("Expiry Date (YYYY-MM-DD): ")
-    manufacturer = input("Manufacturer: ")  # required in medicines table
-    supplier_name = input("Supplier Name: ")  # used for many-to-many relation
+    manufacturer = input("Manufacturer: ")
+    supplier_name = input("Supplier Name: ")
 
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Step 1: Get or create supplier
     supplier_id = get_or_create_supplier(conn, supplier_name)
 
-    # Step 2: Check if this medicine batch exists (name + category + price + expiry + manufacturer)
     cursor.execute("""
         SELECT med_id, quantity FROM medicines 
         WHERE name = %s AND category = %s AND price = %s 
@@ -101,7 +93,6 @@ def add_medicine():
         med_id = cursor.lastrowid
         print("New medicine batch added.")
 
-    # Step 3: Link supplier to medicine (only if not already linked)
     cursor.execute("""
         SELECT 1 FROM medicine_suppliers WHERE med_id = %s AND supplier_id = %s
     """, (med_id, supplier_id))
@@ -119,8 +110,6 @@ def add_medicine():
 
     cursor.close()
     conn.close()
-
-
 
 def update_quantity():
     med_id = int(input("Enter Medicine ID: "))
@@ -144,7 +133,6 @@ def record_sale():
         conn = get_connection()
         cursor = conn.cursor(buffered=True)
 
-        # Fetch all batches of medicine sorted by expiry
         cursor.execute("""
             SELECT med_id, quantity, expiry_date 
             FROM medicines 
@@ -154,24 +142,20 @@ def record_sale():
         batches = cursor.fetchall()
 
         if not batches:
-            print(f" No stock found for '{med_name}'.")
+            print(f"No stock found for '{med_name}'.")
         else:
             qty_needed = qty
-            for batch in batches:
-                med_id, available_qty, expiry_date = batch
-                today = datetime.today().date()
-                if expiry_date < today:
-                    continue  # Skip expired
+            for med_id, available_qty, expiry_date in batches:
+                if expiry_date < datetime.today().date():
+                    continue
 
                 to_deduct = min(qty_needed, available_qty)
 
-                # Record partial or full sale from this batch
                 cursor.execute("""
                     INSERT INTO sales (med_id, quantity_sold, sale_date)
                     VALUES (%s, %s, %s)
                 """, (med_id, to_deduct, sale_date))
 
-                # Update stock
                 cursor.execute("""
                     UPDATE medicines SET quantity = quantity - %s WHERE med_id = %s
                 """, (to_deduct, med_id))
@@ -194,7 +178,6 @@ def record_sale():
     except ValueError:
         print("Invalid input. Please enter numeric values for quantity.")
 
-
 def view_sales():
     conn = get_connection()
     cursor = conn.cursor()
@@ -210,8 +193,6 @@ def view_sales():
         print(f"Sale ID: {row[0]} | Medicine: {row[1]} | Qty Sold: {row[2]} | Date: {row[3]}")
     cursor.close()
     conn.close()
-
-
 
 # Main CLI loop
 while True:
