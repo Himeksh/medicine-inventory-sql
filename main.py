@@ -36,15 +36,15 @@ def view_medicines():
         for med_id, name, category, manufacturer, qty, price, expiry in results:
             status = ""
             if expiry < today:
-                status = Fore.RED + "❌ EXPIRED" + Style.RESET_ALL
+                status = Fore.RED + "EXPIRED" + Style.RESET_ALL
             elif today <= expiry <= near_expiry_limit:
-                status = Fore.YELLOW + "⚠️ Near Expiry" + Style.RESET_ALL
+                status = Fore.YELLOW + "Near Expiry" + Style.RESET_ALL
             else:
-                status = Fore.GREEN + "✅ OK" + Style.RESET_ALL
+                status = Fore.GREEN + "OK" + Style.RESET_ALL
 
             print(f"{med_id:<5} {name:<20} {category:<15} {manufacturer:<15} {qty:<6} ₹{price:<7.2f} {expiry}  {status}")
     else:
-        print("❌ No medicines found in the inventory.")
+        print("No medicines found in the inventory.")
 
     cursor.close()
     conn.close()
@@ -55,13 +55,13 @@ def get_or_create_supplier(conn, supplier_name):
     result = cursor.fetchone()
 
     if result:
-        print(f"ℹ️ Supplier '{supplier_name}' already exists (ID: {result[0]}).")
+        print(f"ℹSupplier '{supplier_name}' already exists (ID: {result[0]}).")
         return result[0]
     else:
         cursor.execute("INSERT INTO suppliers (name) VALUES (%s)", (supplier_name,))
         conn.commit()
         new_id = cursor.lastrowid
-        print(f"✅ New supplier '{supplier_name}' added with ID: {new_id}.")
+        print(f"New supplier '{supplier_name}' added with ID: {new_id}.")
         return new_id
 
 def add_medicine():
@@ -89,7 +89,7 @@ def add_medicine():
 
     if existing:
         med_id, current_qty = existing
-        print(f"⚠️ Medicine batch exists. Updating quantity.")
+        print(f"Medicine batch exists. Updating quantity.")
         cursor.execute("UPDATE medicines SET quantity = quantity + %s WHERE med_id = %s", (quantity, med_id))
         conn.commit()
     else:
@@ -99,7 +99,7 @@ def add_medicine():
         """, (name, category, quantity, price, expiry, manufacturer))
         conn.commit()
         med_id = cursor.lastrowid
-        print("✅ New medicine batch added.")
+        print("New medicine batch added.")
 
     # Step 3: Link supplier to medicine (only if not already linked)
     cursor.execute("""
@@ -113,9 +113,9 @@ def add_medicine():
             VALUES (%s, %s)
         """, (med_id, supplier_id))
         conn.commit()
-        print("✅ Supplier linked to medicine.")
+        print("Supplier linked to medicine.")
     else:
-        print("ℹ️ Supplier already linked to this medicine.")
+        print("Supplier already linked to this medicine.")
 
     cursor.close()
     conn.close()
@@ -130,7 +130,7 @@ def update_quantity():
     cursor = conn.cursor()
     cursor.execute("UPDATE medicines SET quantity = quantity + %s WHERE med_id = %s", (qty, med_id))
     conn.commit()
-    print("✅ Quantity updated.")
+    print("Quantity updated.")
     cursor.close()
     conn.close()
 
@@ -154,7 +154,7 @@ def record_sale():
         batches = cursor.fetchall()
 
         if not batches:
-            print(f"❌ No stock found for '{med_name}'.")
+            print(f" No stock found for '{med_name}'.")
         else:
             qty_needed = qty
             for batch in batches:
@@ -182,9 +182,9 @@ def record_sale():
                     break
 
             if qty_needed > 0:
-                print(f"⚠️ Only partial stock available. Sold {qty - qty_needed} units out of {qty}.")
+                print(f"Only partial stock available. Sold {qty - qty_needed} units out of {qty}.")
             else:
-                print(f"✅ Sale recorded: {qty} units of '{med_name}' sold on {sale_date}.")
+                print(f"Sale recorded: {qty} units of '{med_name}' sold on {sale_date}.")
 
             conn.commit()
 
@@ -192,7 +192,7 @@ def record_sale():
         conn.close()
 
     except ValueError:
-        print("❌ Invalid input. Please enter numeric values for quantity.")
+        print("Invalid input. Please enter numeric values for quantity.")
 
 
 def view_sales():
@@ -229,7 +229,7 @@ while True:
     elif choice == '5':
         view_sales()
     elif choice == '6':
-        print("👋 Exiting program. Goodbye!")
+        print("Exiting program. Goodbye!")
         break
     else:
-        print("❌ Invalid choice. Try again.")
+        print("Invalid choice. Try again.")

@@ -17,7 +17,7 @@ def top_selling_medicines():
     """
     df = pd.read_sql(query, conn)
     df.to_csv("top_selling_medicines.csv", index=False)
-    print("\n📊 Top-Selling Medicines:")
+    print("\n Top-Selling Medicines:")
     print(df.to_string(index=False))
     conn.close()
 
@@ -31,7 +31,7 @@ def low_stock_medicines(threshold=20):
     """
     df = pd.read_sql(query, conn, params=(threshold,))
     df.to_csv("low_stock_medicines.csv", index=False)
-    print(f"\n⚠️ Low Stock Medicines (less than {threshold} units):")
+    print(f"\n Low Stock Medicines (less than {threshold} units):")
     print(df.to_string(index=False))
     conn.close()
 
@@ -46,7 +46,7 @@ def expiring_soon(days=30):
     """
     df = pd.read_sql(query, conn, params=(future_date,))
     df.to_csv("medicines_expiring_soon.csv", index=False)
-    print(f"\n🗓️ Medicines Expiring Within {days} Days:")
+    print(f"\n Medicines Expiring Within {days} Days:")
     print(df.to_string(index=False))
     conn.close()
 
@@ -60,7 +60,7 @@ def daily_sales_report():
     """
     df = pd.read_sql(query, conn)
     df.to_csv("daily_sales_report.csv", index=False)
-    print("\n📈 Daily Sales Report:")
+    print("\n Daily Sales Report:")
     print(df.to_string(index=False))
     conn.close()
 
@@ -79,7 +79,7 @@ def supplier_supply_log():
     """
     df = pd.read_sql(query, conn)
     df.to_csv("supplier_supply_log.csv", index=False)
-    print("\n=== 🧾 Supplier Supply Log ===")
+    print("\n===  Supplier Supply Log ===")
     print(df.to_string(index=False))
     conn.close()
 
@@ -97,7 +97,7 @@ def supplier_cost_summary():
     """
     df = pd.read_sql(query, conn)
     df.to_csv("supplier_cost_summary.csv", index=False)
-    print("\n=== 💰 Supplier Total Cost Summary ===")
+    print("\n===  Supplier Total Cost Summary ===")
     print(df.to_string(index=False))
     conn.close()
 
@@ -130,9 +130,9 @@ def export_inventory_to_csv():
 
                 writer.writerow([med_id, name, category, manufacturer, qty, f"{price:.2f}", expiry, status])
 
-        print(f"✅ Inventory CSV report generated: {filename}")
+        print(f" Inventory CSV report generated: {filename}")
     else:
-        print("❌ No medicines found in inventory.")
+        print(" No medicines found in inventory.")
 
     cursor.close()
     conn.close()
@@ -165,16 +165,16 @@ def export_sales_to_csv():
             for row in results:
                 writer.writerow(row)
 
-        print(f"✅ Sales report exported successfully to '{filename}'")
+        print(f" Sales report exported successfully to '{filename}'")
     else:
-        print("❌ No sales records found.")
+        print(" No sales records found.")
 
     cursor.close()
     conn.close()
 
 def show_menu():
     while True:
-        print("\n=== 📈 Analytics Dashboard ===")
+        print("\n=== Analytics Dashboard ===")
         print("1. Top-Selling Medicines")
         print("2. Low Stock Alert")
         print("3. Expiring Soon")
@@ -203,10 +203,10 @@ def show_menu():
         elif choice == '8':
             export_sales_to_csv()
         elif choice == '9':
-            print("✅ Exiting Analytics.")
+            print(" Exiting Analytics.")
             break
         else:
-            print("❌ Invalid choice. Try again.")
+            print(" Invalid choice. Try again.")
 
 if __name__ == "__main__":
     show_menu()

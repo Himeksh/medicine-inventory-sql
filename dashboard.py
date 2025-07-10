@@ -4,8 +4,8 @@ import plotly.express as px
 from datetime import datetime, timedelta
 from db_config import get_connection
 
-st.set_page_config(page_title="💊 Inventory Dashboard", layout="wide")
-st.title("💊 Medicine Inventory & Sales Dashboard")
+st.set_page_config(page_title="Inventory Dashboard", layout="wide")
+st.title("Medicine Inventory & Sales Dashboard")
 
 # === Load Data ===
 conn = get_connection()
@@ -15,19 +15,19 @@ supplier_query = "SELECT DISTINCT name FROM suppliers"
 suppliers_list = pd.read_sql(supplier_query, conn)['name'].tolist()
 
 # Sidebar Filters
-st.sidebar.header("🔍 Filters")
+st.sidebar.header("Filters")
 
-# 📅 Date Range
+# Date Range
 min_date = datetime(2020, 1, 1)
 max_date = datetime.today()
 start_date, end_date = st.sidebar.date_input("Select Date Range:", [min_date, max_date])
 start_dt = datetime.combine(start_date, datetime.min.time())
 end_dt = datetime.combine(end_date, datetime.max.time())
 
-# 🧾 Supplier Filter
+# Supplier Filter
 supplier_filter = st.sidebar.selectbox("Filter by Supplier", ["All"] + suppliers_list)
 
-# 📦 Inventory Status Filter
+# Inventory Status Filter
 status_filter = st.sidebar.radio("Inventory Status", ["All", "Expired", "Near Expiry", "OK"])
 
 # === Sales Data ===
@@ -90,25 +90,25 @@ conn.close()
 
 # Line Chart: Daily Sales
 sales_chart = filtered_sales.groupby("sale_date")["quantity_sold"].sum().reset_index()
-fig_line = px.line(sales_chart, x="sale_date", y="quantity_sold", title="📈 Daily Sales")
+fig_line = px.line(sales_chart, x="sale_date", y="quantity_sold", title="Daily Sales")
 
 # Pie Chart: Inventory by Category
 cat_dist = df_inventory.groupby("category")["quantity"].sum().reset_index()
-fig_pie = px.pie(cat_dist, names="category", values="quantity", title="📊 Stock by Category")
+fig_pie = px.pie(cat_dist, names="category", values="quantity", title="Stock by Category")
 
 # Bar Chart: Top-Selling Medicines
 top_meds = filtered_sales.groupby("medicine_name")["quantity_sold"].sum().reset_index().sort_values(by="quantity_sold", ascending=False).head(10)
-fig_bar = px.bar(top_meds, x="medicine_name", y="quantity_sold", title="🏆 Top-Selling Medicines")
+fig_bar = px.bar(top_meds, x="medicine_name", y="quantity_sold", title="Top-Selling Medicines")
 
 # Bar Chart: Supplier Cost Summary
-fig_cost = px.bar(df_suppliers, x="Supplier", y="Total_Cost", title="💰 Supplier Cost Summary")
+fig_cost = px.bar(df_suppliers, x="Supplier", y="Total_Cost", title="Supplier Cost Summary")
 
 # === KPIs ===
-st.markdown("### 📋 Key Metrics")
+st.markdown("### Key Metrics")
 col1, col2, col3 = st.columns(3)
-col1.metric("🧾 Total Sales", int(filtered_sales["quantity_sold"].sum()))
-col2.metric("📦 Inventory Qty", int(df_inventory["quantity"].sum()))
-col3.metric("⚠️ Expired Items", df_inventory[df_inventory["status"] == "Expired"].shape[0])
+col1.metric("Total Sales", int(filtered_sales["quantity_sold"].sum()))
+col2.metric("Inventory Qty", int(df_inventory["quantity"].sum()))
+col3.metric("Expired Items", df_inventory[df_inventory["status"] == "Expired"].shape[0])
 
 # === Show Charts ===
 st.plotly_chart(fig_line, use_container_width=True)
@@ -120,11 +120,11 @@ col5.plotly_chart(fig_bar, use_container_width=True)
 st.plotly_chart(fig_cost, use_container_width=True)
 
 # === Show Tables ===
-st.markdown("### 🧾 Filtered Sales Data")
+st.markdown("### Filtered Sales Data")
 st.dataframe(filtered_sales)
 
-st.markdown("### 📦 Current Inventory")
+st.markdown("### Current Inventory")
 st.dataframe(df_inventory)
 
-st.markdown("### 💰 Supplier Cost Summary")
+st.markdown("### Supplier Cost Summary")
 st.dataframe(df_suppliers)

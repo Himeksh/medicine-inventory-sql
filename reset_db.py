@@ -16,10 +16,10 @@ def reset_all_tables():
         cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
 
         conn.commit()
-        print("✅ All table records deleted successfully. Database reset.")
+        print("All table records deleted successfully. Database reset.")
 
     except Exception as e:
-        print("❌ Error resetting the database:", str(e))
+        print("Error resetting the database:", str(e))
         conn.rollback()
 
     finally:
@@ -27,8 +27,8 @@ def reset_all_tables():
         conn.close()
 
 if __name__ == "__main__":
-    confirm = input("⚠️ Are you sure you want to delete all records? Type 'yes' to continue: ")
+    confirm = input("Are you sure you want to delete all records? Type 'yes' to continue: ")
     if confirm.lower() == "yes":
         reset_all_tables()
     else:
-        print("❌ Operation cancelled.")
+        print("Operation cancelled.")

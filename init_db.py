@@ -50,7 +50,7 @@ def create_tables():
     """)
 
     conn.commit()
-    print("✅ All tables created successfully.")
+    print("All tables created successfully.")
 
     cursor.close()
     conn.close()
