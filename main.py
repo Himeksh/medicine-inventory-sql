@@ -15,7 +15,7 @@ def view_medicines():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT med_id, name, category, manufacturer, quantity, price, expiry_date
+        SELECT med_id, name, category, manufacturer, quantity, price, expiry_date, added_on
         FROM medicines
         ORDER BY name ASC, expiry_date ASC
     """)
@@ -26,9 +26,9 @@ def view_medicines():
 
     if results:
         print("\n=== 📦 Medicine Inventory (Batch-wise) ===")
-        print(f"{'ID':<5} {'Name':<20} {'Category':<15} {'Manufacturer':<15} {'Qty':<6} {'Price':<8} {'Expiry':<12} {'Status'}")
-        print("-" * 100)
-        for med_id, name, category, manufacturer, qty, price, expiry in results:
+        print(f"{'ID':<5} {'Name':<20} {'Category':<25} {'Manufacturer':<15} {'Qty':<6} {'Price':<8} {'Expiry':<12} {'Status':<15} {'added on':<12}")
+        print("-" * 150)
+        for med_id, name, category, manufacturer, qty, price, expiry, added_on in results:
             if expiry < today:
                 status = "EXPIRED"
             elif today <= expiry <= near_expiry_limit:
@@ -36,7 +36,7 @@ def view_medicines():
             else:
                 status = "OK"
 
-            print(f"{med_id:<5} {name:<20} {category:<15} {manufacturer:<15} {qty:<6} ₹{price:<7.2f} {expiry}  {status}")
+            print(f"{med_id:<5} {name:<20} {category:<25} {manufacturer:<15} {qty:<6} ₹{price:<7.2f} {expiry}  {status:<15} {added_on}")
     else:
         print("No medicines found in the inventory.")
 
@@ -66,6 +66,7 @@ def add_medicine():
     expiry = input("Expiry Date (YYYY-MM-DD): ")
     manufacturer = input("Manufacturer: ")
     supplier_name = input("Supplier Name: ")
+    added_on = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     conn = get_connection()
     cursor = conn.cursor()
@@ -86,15 +87,15 @@ def add_medicine():
         conn.commit()
     else:
         cursor.execute("""
-            INSERT INTO medicines (name, category, quantity, price, expiry_date, manufacturer)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (name, category, quantity, price, expiry, manufacturer))
+            INSERT INTO medicines (name, category, quantity, price, expiry_date, manufacturer, added_on)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (name, category, quantity, price, expiry, manufacturer, added_on))
         conn.commit()
         med_id = cursor.lastrowid
         print("New medicine batch added.")
 
     cursor.execute("""
-        SELECT 1 FROM medicine_suppliers WHERE med_id = %s AND supplier_id = %s
+        SELECT 1 FROM medicine_supplier WHERE med_id = %s AND supplier_id = %s
     """, (med_id, supplier_id))
     link_exists = cursor.fetchone()
 
