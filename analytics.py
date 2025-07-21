@@ -103,44 +103,29 @@ def supplier_cost_summary():
 
 def export_inventory_to_csv():
     conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT med_id, name, category, manufacturer, quantity, price, expiry_date
-        FROM medicines
-        ORDER BY name ASC, expiry_date ASC
-    """)
-    results = cursor.fetchall()
     today = datetime.today().date()
     near_expiry = today + timedelta(days=30)
 
-    if results:
-        filename = "medicine_inventory_report.csv"
-        with open(filename, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(['med_id', 'name', 'category', 'manufacturer', 'quantity', 'price', 'expiry_date', 'status'])
-
-            for med_id, name, category, manufacturer, qty, price, expiry in results:
-                if expiry < today:
-                    status = 'EXPIRED'
-                elif today <= expiry <= near_expiry:
-                    status = 'NEAR EXPIRY'
-                else:
-                    status = 'OK'
-
-                writer.writerow([med_id, name, category, manufacturer, qty, f"{price:.2f}", expiry, status])
-
-        print(f" Inventory CSV report generated: {filename}")
-    else:
+    query = """
+        SELECT med_id, name, category, manufacturer, quantity, price, expiry_date, added_on
+        FROM medicines
+        ORDER BY name ASC, expiry_date ASC
+    """
+    df = pd.read_sql(query, conn)
+    if df.empty:
         print(" No medicines found in inventory.")
-
-    cursor.close()
+    else:
+        # Assign status based on expiry
+        df['status'] = df['expiry_date'].apply(
+            lambda x: 'EXPIRED' if x < today else ('NEAR EXPIRY' if x <= near_expiry else 'OK')
+        )
+        df.to_csv("medicine_inventory_report.csv", index=False)
+        print(" Inventory CSV report generated: medicine_inventory_report.csv")
+    
     conn.close()
 
 def export_sales_to_csv():
     conn = get_connection()
-    cursor = conn.cursor()
-
     query = """
         SELECT 
             s.sale_id,
@@ -152,24 +137,13 @@ def export_sales_to_csv():
         JOIN medicines m ON s.med_id = m.med_id
         ORDER BY s.sale_date DESC
     """
-
-    cursor.execute(query)
-    results = cursor.fetchall()
-
-    if results:
-        filename = "sales_report.csv"
-        with open(filename, mode='w', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            writer.writerow(['sale_id', 'medicine_name', 'manufacturer', 'quantity_sold', 'sale_date'])
-
-            for row in results:
-                writer.writerow(row)
-
-        print(f" Sales report exported successfully to '{filename}'")
-    else:
+    df = pd.read_sql(query, conn)
+    if df.empty:
         print(" No sales records found.")
-
-    cursor.close()
+    else:
+        df.to_csv("sales_report.csv", index=False)
+        print(" Sales report exported successfully to 'sales_report.csv'")
+    
     conn.close()
 
 def show_menu():
